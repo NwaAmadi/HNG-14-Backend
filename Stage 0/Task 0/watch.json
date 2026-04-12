@@ -1,0 +1,8 @@
+{
+  "runtime": "tsx",
+  "entry": "./Task 0.ts",
+  "watch": [
+    "./Task 0.ts",
+    "./tsconfig.json"
+  ]
+}

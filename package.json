@@ -1,0 +1,16 @@
+{
+  "name": "hng-14",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.12.2",
+  "scripts": {
+    "task0:dev": "tsx watch --clear-screen=false \"./Stage 0/Task 0/Task 0.ts\"",
+    "task0:start": "tsx \"./Stage 0/Task 0/Task 0.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}
