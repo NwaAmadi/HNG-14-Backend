@@ -19,8 +19,8 @@ export type ApiRequest = Request & {
 };
 
 export type ApiResponse = Response<Request> & {
-  status: (code: number) => ApiResponse;
-  json: (body: unknown) => ApiResponse;
+  status?: (code: number) => ApiResponse;
+  json?: (body: unknown) => ApiResponse;
 };
 
 type GenderizeResponse = {
@@ -70,14 +70,36 @@ function getRequestUrl(request: ApiRequest): URL | null {
 }
 
 function json(response: ApiResponse, statusCode: number, body: unknown) {
-  return response.status(statusCode).json(body);
+  const setStatus = response.status;
+  const sendJson = response.json;
+
+  if (typeof setStatus === "function" && typeof sendJson === "function") {
+    return setStatus.call(response, statusCode).json?.call(response, body) ?? response;
+  }
+
+  response.statusCode = statusCode;
+  response.setHeader("Content-Type", "application/json; charset=utf-8");
+  response.end(JSON.stringify(body));
+  return response;
+}
+
+function noContent(response: ApiResponse) {
+  const setStatus = response.status;
+
+  if (typeof setStatus === "function") {
+    setStatus.call(response, StatusCodes.NO_CONTENT).end();
+    return;
+  }
+
+  response.statusCode = StatusCodes.NO_CONTENT;
+  response.end();
 }
 
 function handleOptions(request: ApiRequest, response: ApiResponse): boolean {
   setCorsHeaders(response);
 
   if (request.method === "OPTIONS") {
-    response.status(StatusCodes.NO_CONTENT).end();
+    noContent(response);
     return true;
   }
 
@@ -425,7 +447,7 @@ export async function profileByIdHandler(request: ApiRequest, response: ApiRespo
         where: { id: profileId },
       });
 
-      response.status(StatusCodes.NO_CONTENT).end();
+      noContent(response);
       return;
     }
 
