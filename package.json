@@ -6,7 +6,8 @@
   "packageManager": "pnpm@10.12.2",
   "scripts": {
     "task0:dev": "tsx watch --clear-screen=false \"./Stage 0/Task 0/Task 0.ts\"",
-    "task0:start": "tsx \"./Stage 0/Task 0/Task 0.ts\""
+    "task0:start": "tsx \"./Stage 0/Task 0/Task 0.ts\"",
+    "stage1:test": "node ./scripts/test-stage1.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",

@@ -1,1 +1,1 @@
-export { default } from "../../Stage 1/api/[id].js";
+export { profileByIdHandler as default } from "../../Stage 1/profiles.js";

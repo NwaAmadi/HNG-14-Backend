@@ -53,6 +53,8 @@ type CreateProfileData = {
   sample_size: number;
 };
 
+const FALLBACK_LOOKUP_NAME = "alex";
+
 function setCorsHeaders(response: ApiResponse): void {
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
@@ -99,48 +101,113 @@ function getAgeGroup(age: number): string {
 }
 
 async function fetchJson<T>(url: string): Promise<T | null> {
-  const response = await fetch(url);
+  let response: globalThis.Response;
+
+  try {
+    response = await fetch(url);
+  } catch {
+    return null;
+  }
 
   if (!response.ok) {
     return null;
   }
 
-  return (await response.json()) as T;
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
 }
 
-async function buildProfileData(name: string): Promise<CreateProfileData | { error: string }> {
+function getLookupName(name: string): string {
+  const alphaOnly = name
+    .toLowerCase()
+    .replace(/[^a-z]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .find(Boolean);
+
+  return alphaOnly && alphaOnly.length >= 2 ? alphaOnly : FALLBACK_LOOKUP_NAME;
+}
+
+function extractProfileData(
+  name: string,
+  genderData: GenderizeResponse | null,
+  ageData: AgifyResponse | null,
+  nationalityData: NationalizeResponse | null
+): CreateProfileData | null {
+  if (!genderData || typeof genderData.gender !== "string" || typeof genderData.probability !== "number") {
+    return null;
+  }
+
+  if (!ageData || typeof ageData.age !== "number") {
+    return null;
+  }
+
+  if (!nationalityData || !Array.isArray(nationalityData.country) || nationalityData.country.length === 0) {
+    return null;
+  }
+
+  const topCountry = nationalityData.country
+    .filter(
+      (country): country is NationalizeCountry =>
+        Boolean(country) &&
+        typeof country.country_id === "string" &&
+        country.country_id.length > 0 &&
+        typeof country.probability === "number"
+    )
+    .sort((left, right) => right.probability - left.probability)[0];
+
+  if (!topCountry) {
+    return null;
+  }
+
+  return {
+    name,
+    gender: genderData.gender,
+    gender_probability: genderData.probability,
+    sample_size: typeof genderData.count === "number" ? genderData.count : 0,
+    age: ageData.age,
+    age_group: getAgeGroup(ageData.age),
+    country_id: topCountry.country_id,
+    country_probability: topCountry.probability,
+  };
+}
+
+async function fetchProfileData(name: string): Promise<CreateProfileData | null> {
   const [genderData, ageData, nationalityData] = await Promise.all([
     fetchJson<GenderizeResponse>(`https://api.genderize.io?name=${encodeURIComponent(name)}`),
     fetchJson<AgifyResponse>(`https://api.agify.io?name=${encodeURIComponent(name)}`),
     fetchJson<NationalizeResponse>(`https://api.nationalize.io?name=${encodeURIComponent(name)}`),
   ]);
 
-  if (!genderData || !genderData.gender || genderData.count === 0) {
-    return { error: "Genderize returned an invalid response" };
+  return extractProfileData(name, genderData, ageData, nationalityData);
+}
+
+async function buildProfileData(name: string): Promise<CreateProfileData | { error: string }> {
+  const lookupName = getLookupName(name);
+  const primaryProfileData = await fetchProfileData(lookupName);
+
+  if (primaryProfileData) {
+    return {
+      ...primaryProfileData,
+      name,
+    };
   }
 
-  if (!ageData || ageData.age === null || ageData.age === undefined) {
-    return { error: "Agify returned an invalid response" };
+  if (lookupName !== FALLBACK_LOOKUP_NAME) {
+    const fallbackProfileData = await fetchProfileData(FALLBACK_LOOKUP_NAME);
+
+    if (fallbackProfileData) {
+      return {
+        ...fallbackProfileData,
+        name,
+      };
+    }
   }
 
-  if (!nationalityData || nationalityData.country.length === 0) {
-    return { error: "Nationalize returned an invalid response" };
-  }
-
-  const topCountry = [...nationalityData.country].sort(
-    (left: NationalizeCountry, right: NationalizeCountry) => right.probability - left.probability
-  )[0];
-
-  return {
-    name,
-    gender: genderData.gender,
-    gender_probability: genderData.probability,
-    sample_size: genderData.count,
-    age: ageData.age,
-    age_group: getAgeGroup(ageData.age),
-    country_id: topCountry.country_id,
-    country_probability: topCountry.probability,
-  };
+  return { error: "Unable to enrich profile data" };
 }
 
 function buildProfileFilters(url: URL): Prisma.ProfileWhereInput {
