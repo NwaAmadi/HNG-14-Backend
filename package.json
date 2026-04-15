@@ -12,5 +12,12 @@
     "@types/node": "^24.5.2",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.7.0",
+    "@prisma/client": "^7.7.0",
+    "http-status-codes": "^2.3.0",
+    "prisma": "^7.7.0",
+    "uuid": "^13.0.0"
   }
 }

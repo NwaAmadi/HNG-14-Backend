@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["./Task 0.ts"]
+  "include": ["./Task 0.ts", "./classify.ts", "./api/**/*.ts"]
 }

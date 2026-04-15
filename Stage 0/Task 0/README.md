@@ -1,6 +1,6 @@
 # Task 0
 
-TypeScript API endpoint that exposes `GET /api/classify` and proxies to the Genderize API after validating and reshaping the response. It now deploys on Vercel as a serverless function via [`api/classify.ts`](/home/gospel/Desktop/Classified/HNG%2014/api/classify.ts:1), while keeping a small local Node server for `pnpm task0:dev`.
+TypeScript API endpoint that exposes `GET /api/classify` and proxies to the Genderize API after validating and reshaping the response. The serverless handler now lives in [`api/classify.ts`](/home/gospel/Desktop/Classified/HNG%2014/Stage%200/Task%200/api/classify.ts:1) inside this task folder, while the repository root keeps a tiny compatibility entrypoint at [`/api/classify.ts`](/home/gospel/Desktop/Classified/HNG%2014/api/classify.ts:1) so the deployed route does not change. Local development still uses a small Node server for `pnpm task0:dev`.
 
 ## Scripts
 
@@ -40,4 +40,4 @@ For errors:
 
 ## Deployment
 
-Deployment on Vercel `api/classify.ts`.
+Deployment keeps the `/api/classify` route through the root compatibility entrypoint, which re-exports this task-local handler.

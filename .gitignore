@@ -3,3 +3,6 @@ node_modules
 .codex
 .vercel
 .env*.local
+/generated/prisma
+env
+.env

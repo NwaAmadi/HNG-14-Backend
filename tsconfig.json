@@ -11,6 +11,7 @@
   },
   "include": [
     "api/**/*.ts",
-    "Stage 0/Task 0/**/*.ts"
+    "Stage 0/Task 0/**/*.ts",
+    "Stage 1/**/*.ts"
   ]
 }
