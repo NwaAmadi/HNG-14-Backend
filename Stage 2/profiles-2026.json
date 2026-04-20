@@ -1,0 +1,29 @@
+[
+  {
+    "name": "Ada Obi",
+    "gender": "female",
+    "gender_probability": 0.99,
+    "age": 28,
+    "country_id": "NG",
+    "country_name": "Nigeria",
+    "country_probability": 0.96
+  },
+  {
+    "name": "John Kariuki",
+    "gender": "male",
+    "gender_probability": 0.97,
+    "age": 22,
+    "country_id": "KE",
+    "country_name": "Kenya",
+    "country_probability": 0.95
+  },
+  {
+    "name": "Mary Adebayo",
+    "gender": "female",
+    "gender_probability": 0.98,
+    "age": 18,
+    "country_id": "NG",
+    "country_name": "Nigeria",
+    "country_probability": 0.94
+  }
+]

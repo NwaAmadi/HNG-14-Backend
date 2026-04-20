@@ -8,7 +8,9 @@
     "postinstall": "prisma generate",
     "task0:dev": "tsx watch --clear-screen=false \"./Stage 0/Task 0/Task 0.ts\"",
     "task0:start": "tsx \"./Stage 0/Task 0/Task 0.ts\"",
-    "stage1:test": "node ./scripts/test-stage1.mjs"
+    "stage1:test": "node ./scripts/test-stage1.mjs",
+    "stage2:seed": "tsx \"./Stage 2/seed-stage2.ts\"",
+    "stage2:test": "node --import tsx ./scripts/test-stage2.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",

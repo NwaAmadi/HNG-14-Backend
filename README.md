@@ -1,43 +1,9 @@
-# Task 0
+# HNG 14 Tasks
 
-TypeScript API endpoint that exposes `GET /api/classify` and proxies to the Genderize API after validating and reshaping the response. The implementation now lives in [`Stage 0/Task 0/api/classify.ts`](/home/gospel/Desktop/Classified/HNG%2014/Stage%200/Task%200/api/classify.ts:1), while the root [`api/classify.ts`](/home/gospel/Desktop/Classified/HNG%2014/api/classify.ts:1) remains as a tiny compatibility entrypoint so the deployed route stays `/api/classify`. Local development still uses a small Node server via `pnpm task0:dev`.
+This repository keeps each stage grouped in its own folder where possible.
 
-## Scripts
+- Stage 0 docs are in [Stage 0/README.md](/home/gospel/Desktop/Classified/HNG%2014/Stage%200/README.md:1)
+- Stage 1 code lives in [Stage 1](/home/gospel/Desktop/Classified/HNG%2014/Stage%201)
+- Stage 2 docs and implementation now live in [Stage 2/README.md](/home/gospel/Desktop/Classified/HNG%2014/Stage%202/README.md:1)
 
-- `pnpm install` from the repository root
-- `pnpm task0:dev` from the repository root for local development
-- `pnpm task0:start` from the repository root for a local one-off run
-- Deploy on Vercel with the root directory set to `.`
-
-## Endpoint
-
-`GET /api/classify?name=<value>`
-
-Success response:
-
-```json
-{
-  "status": "success",
-  "data": {
-    "name": "michael",
-    "gender": "male",
-    "probability": 0.99,
-    "sample_size": 1234,
-    "is_confident": true,
-    "processed_at": "2026-04-01T12:00:00.000Z"
-  }
-}
-```
-
-For errors:
-
-```json
-{
-  "status": "error",
-  "message": "<error message>"
-}
-```
-
-## Deployment
-
-Deployment keeps the `/api/classify` route through the root `api/classify.ts` entrypoint, which re-exports the handler from `Stage 0/Task 0/api/classify.ts`.
+The shared database schema remains in [prisma/schema.prisma](/home/gospel/Desktop/Classified/HNG%2014/prisma/schema.prisma:1), and the deployed route entrypoints remain in [api](/home/gospel/Desktop/Classified/HNG%2014/api).

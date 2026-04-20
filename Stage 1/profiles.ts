@@ -8,6 +8,7 @@ import type { Prisma, Profile } from "@prisma/client";
 import { prisma } from "../lib/db.js";
 import { v7 as uuidv7 } from "uuid";
 import { StatusCodes } from "http-status-codes";
+import { getCountryNameFromCode } from "../Stage 2/profile-engine.js";
 
 export type ApiRequest = Request & {
   method?: string;
@@ -46,11 +47,11 @@ type CreateProfileData = {
   age: number;
   age_group: string;
   country_id: string;
+  country_name: string;
   country_probability: number;
   gender: string;
   gender_probability: number;
   name: string;
-  sample_size: number;
 };
 
 const FALLBACK_LOOKUP_NAME = "alex";
@@ -185,14 +186,20 @@ function extractProfileData(
     return null;
   }
 
+  const countryName = getCountryNameFromCode(topCountry.country_id);
+
+  if (!countryName) {
+    return null;
+  }
+
   return {
     name,
     gender: genderData.gender,
     gender_probability: genderData.probability,
-    sample_size: typeof genderData.count === "number" ? genderData.count : 0,
     age: ageData.age,
     age_group: getAgeGroup(ageData.age),
     country_id: topCountry.country_id,
+    country_name: countryName,
     country_probability: topCountry.probability,
   };
 }
