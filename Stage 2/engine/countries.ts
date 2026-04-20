@@ -87,6 +87,12 @@ export function getCountryNameFromCode(countryCode: string): string | null {
   return COUNTRY_BY_CODE.get(countryCode.toUpperCase())?.name ?? null;
 }
 
+// Other scripts can call this to stay perfectly aligned with the same
+// country list used by the natural-language parser.
+export function getSupportedCountries(): ReadonlyArray<CountryDefinition> {
+  return COUNTRY_DEFINITIONS;
+}
+
 function escapeForRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
