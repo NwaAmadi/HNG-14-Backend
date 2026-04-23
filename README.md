@@ -9,7 +9,7 @@ This repository keeps each stage grouped in its own folder where possible.
 The shared database schema remains in [prisma/schema.prisma](/home/gospel/Desktop/Classified/HNG%2014/prisma/schema.prisma:1), and the deployed route entrypoints remain in [api](/home/gospel/Desktop/Classified/HNG%2014/api).
 
 
-# Intelligence Query Engine
+# Stage 2: Intelligence Query Engine
 
 Backend API for Insighta Labs stage 2. The project stores demographic profiles in PostgreSQL with Prisma, supports advanced filtering on `/api/profiles`, and supports rule-based natural-language search on `/api/profiles/search`.
 
