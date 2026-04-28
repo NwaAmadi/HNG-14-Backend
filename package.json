@@ -21,8 +21,11 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
+    "@t3-oss/env-core": "^0.13.11",
+    "dotenv": "^17.4.2",
     "http-status-codes": "^2.3.0",
     "prisma": "^7.7.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zod": "^4.3.6"
   }
 }
