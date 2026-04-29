@@ -1,0 +1,28 @@
+{
+  "rewrites": [
+    {
+      "source": "/auth/:path*",
+      "destination": "/api/auth/:path*"
+    },
+    {
+      "source": "/profiles/export",
+      "destination": "/api/profiles/export"
+    },
+    {
+      "source": "/profiles/search",
+      "destination": "/api/profiles/search"
+    },
+    {
+      "source": "/profiles/:id",
+      "destination": "/api/profiles/:id"
+    },
+    {
+      "source": "/profiles",
+      "destination": "/api/profiles"
+    },
+    {
+      "source": "/classify",
+      "destination": "/api/classify"
+    }
+  ]
+}
