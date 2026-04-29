@@ -1,14 +1,17 @@
-import { PrismaClient } from "@prisma/client";
+import * as PrismaClientPackage from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { env } from "./env.js";
+
+const { PrismaClient: PrismaClientCtor } = PrismaClientPackage;
+type PrismaClient = InstanceType<typeof PrismaClientCtor>;
 
 const globalForPrisma = globalThis as typeof globalThis & {
   prisma?: PrismaClient;
 };
 
 function createPrismaClient(): PrismaClient {
-  return new PrismaClient({
+  return new PrismaClientCtor({
     adapter: new PrismaPg({ connectionString: env.DATABASE_URL }),
   });
 }

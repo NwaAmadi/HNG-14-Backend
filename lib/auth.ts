@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { UserRole } from "@prisma/client";
+import * as PrismaClientPackage from "@prisma/client";
 import { v7 as uuidv7 } from "uuid";
 import { prisma } from "./db.js";
 import { env } from "./env.js";
@@ -11,6 +11,8 @@ const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
 const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 const OAUTH_TRANSACTION_TTL_SECONDS = 10 * 60;
 const CLI_AUTHORIZATION_CODE_TTL_SECONDS = 2 * 60;
+const { UserRole } = PrismaClientPackage;
+type UserRole = PrismaClientPackage.UserRole;
 
 export type AuthenticatedRequestContext = {
   userId: string;

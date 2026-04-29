@@ -3,8 +3,9 @@ import type {
   ServerResponse as Response,
 } from "node:http";
 
-import type { PrismaClient } from "@prisma/client";
+import * as PrismaClientPackage from "@prisma/client";
 
+type PrismaClient = InstanceType<typeof PrismaClientPackage.PrismaClient>;
 type ProfileDelegate = PrismaClient["profile"];
 export type ProfileWhereInput = NonNullable<Parameters<ProfileDelegate["count"]>[0]>["where"];
 export type ProfileRecord = Awaited<ReturnType<ProfileDelegate["findMany"]>>[number];
