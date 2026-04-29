@@ -5,6 +5,10 @@
       "destination": "/api/auth/:path*"
     },
     {
+      "source": "/users/me",
+      "destination": "/api/users/me"
+    },
+    {
       "source": "/profiles/export",
       "destination": "/api/profiles/export"
     },

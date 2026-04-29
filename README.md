@@ -32,7 +32,7 @@ Important auth routes:
 - `GET /api/auth/github/callback`
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout`
-- `GET /api/auth/me`
+- `GET /api/users/me`
 - `POST /api/auth/cli/exchange`
 
 CLI login start expects:
@@ -252,4 +252,3 @@ Status behavior:
 - Timestamps are returned as UTC ISO 8601 strings by JSON serialization
 - Natural-language parsing is fully rule-based
 - The public routes are rooted at `/api/profiles`, `/api/profiles/search`, and `/api/profiles/[id]`
-

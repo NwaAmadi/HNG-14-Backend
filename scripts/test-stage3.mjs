@@ -133,14 +133,14 @@ async function main() {
   });
 
   try {
-    process.stdout.write("\n[2/11] Checking auth routes are reachable...\n");
+    process.stdout.write("\n[2/11] Checking auth and user routes are reachable...\n");
     {
-      const meUnauthorized = await request("/api/auth/me");
-      assertStatus(meUnauthorized, 401, "Auth me without token");
+      const meUnauthorized = await request("/api/users/me");
+      assertStatus(meUnauthorized, 401, "User me without token");
       assertErrorShape(
         meUnauthorized.body,
         "Authentication required",
-        "Auth me without token"
+        "User me without token"
       );
     }
 
@@ -215,16 +215,16 @@ async function main() {
       csrf_token: "local-csrf-not-needed-for-bearer",
     };
 
-    process.stdout.write("\n[4/11] Verifying bearer auth against /api/auth/me...\n");
-    const meAuthorized = await request("/api/auth/me", {
+    process.stdout.write("\n[4/11] Verifying bearer auth against /api/users/me...\n");
+    const meAuthorized = await request("/api/users/me", {
       headers: {
         Authorization: `Bearer ${analystCurrentTokens.access_token}`,
       },
     });
-    assertStatus(meAuthorized, 200, "Auth me with bearer");
-    assertSuccessShape(meAuthorized.body, "Auth me with bearer");
-    assert(meAuthorized.body?.data?.id === analystUser.id, "Auth me with bearer: wrong user id");
-    assert(meAuthorized.body?.data?.role === UserRole.analyst, "Auth me with bearer: wrong role");
+    assertStatus(meAuthorized, 200, "User me with bearer");
+    assertSuccessShape(meAuthorized.body, "User me with bearer");
+    assert(meAuthorized.body?.data?.id === analystUser.id, "User me with bearer: wrong user id");
+    assert(meAuthorized.body?.data?.role === UserRole.analyst, "User me with bearer: wrong role");
 
     process.stdout.write("\n[5/11] Verifying protected route requirements...\n");
     const protectedUnauthorized = await request("/api/profiles");
