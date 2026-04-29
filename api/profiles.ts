@@ -65,7 +65,7 @@ export const searchProfilesHandler = withProtectedApiRoute(baseSearchProfilesHan
   allowedRoles: {
     GET: ["admin", "analyst"],
   },
-  requireApiVersionHeader: true,
+  requireApiVersionHeader: true, 
 });
 
 async function baseExportProfilesHandler(request: BackendRequest, response: BackendResponse) {
