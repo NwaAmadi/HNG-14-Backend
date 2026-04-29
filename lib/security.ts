@@ -42,6 +42,11 @@ type PublicRouteOptions = {
   rateLimitBucket: "auth" | "api";
 };
 
+type RateLimitDecision = {
+  allowed: boolean;
+  retryAfterSeconds: number;
+};
+
 const rateLimitWindows = {
   auth: {
     maxRequests: 10,
@@ -158,6 +163,10 @@ export function getClientIpAddress(request: BackendRequest): string {
   return request.socket.remoteAddress || "unknown";
 }
 
+function getRequestPathname(request: BackendRequest): string {
+  return getRequestUrl(request)?.pathname || request.url || "/";
+}
+
 /**
  * Reads and parses a JSON request body while gracefully handling runtimes that
  * already parsed the body and attached it to `request.body`.
@@ -231,9 +240,10 @@ function attachRequestLogger(request: BackendRequest, response: BackendResponse)
  *
  * @param bucketName The logical limit bucket, which controls per-minute quota.
  * @param key The identity key to count requests against for the current window.
- * @returns `true` when the request is still within quota, otherwise `false`.
+ * @returns A decision describing whether the request is within quota and how
+ * long the caller should wait before retrying when it is not.
  */
-function checkRateLimit(bucketName: "auth" | "api", key: string): boolean {
+function checkRateLimit(bucketName: "auth" | "api", key: string): RateLimitDecision {
   const bucketConfig = rateLimitWindows[bucketName];
   const now = Date.now();
   const bucketKey = `${bucketName}:${key}`;
@@ -244,12 +254,35 @@ function checkRateLimit(bucketName: "auth" | "api", key: string): boolean {
 
   if (activeTimestamps.length >= bucketConfig.maxRequests) {
     requestBuckets.set(bucketKey, activeTimestamps);
-    return false;
+    const retryAfterMs = bucketConfig.windowMs - (now - activeTimestamps[0]);
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1_000)),
+    };
   }
 
   activeTimestamps.push(now);
   requestBuckets.set(bucketKey, activeTimestamps);
-  return true;
+  return {
+    allowed: true,
+    retryAfterSeconds: 0,
+  };
+}
+
+function applyRateLimit(
+  request: BackendRequest,
+  response: BackendResponse,
+  bucketName: "auth" | "api",
+  key: string
+): BackendResponse | null {
+  const decision = checkRateLimit(bucketName, key);
+
+  if (decision.allowed) {
+    return null;
+  }
+
+  response.setHeader("Retry-After", String(decision.retryAfterSeconds));
+  return json(response, StatusCodes.TOO_MANY_REQUESTS, createErrorBody("Too many requests"));
 }
 
 /**
@@ -272,8 +305,15 @@ export function withPublicRoute(handler: BackendHandler, options: PublicRouteOpt
       return;
     }
 
-    if (!checkRateLimit(options.rateLimitBucket, getClientIpAddress(request))) {
-      return json(response, StatusCodes.TOO_MANY_REQUESTS, createErrorBody("Too many requests"));
+    const rateLimitResponse = applyRateLimit(
+      request,
+      response,
+      options.rateLimitBucket,
+      `${getClientIpAddress(request)}:${getRequestPathname(request)}`
+    );
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
     }
 
     try {
@@ -321,8 +361,10 @@ export function withProtectedApiRoute(
 
     request.auth = auth;
 
-    if (!checkRateLimit("api", auth.userId || getClientIpAddress(request))) {
-      return json(response, StatusCodes.TOO_MANY_REQUESTS, createErrorBody("Too many requests"));
+    const rateLimitResponse = applyRateLimit(request, response, "api", auth.userId);
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
     }
 
     if (options.requireApiVersionHeader && request.headers["x-api-version"] !== "1") {

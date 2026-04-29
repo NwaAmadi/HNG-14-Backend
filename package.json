@@ -6,6 +6,10 @@
   "packageManager": "pnpm@10.12.2",
   "scripts": {
     "dev": "vercel dev",
+    "lint": "pnpm exec tsc --noEmit",
+    "typecheck": "pnpm exec tsc --noEmit",
+    "build:check": "pnpm exec prisma validate",
+    "test": "pnpm stage2:test",
     "postinstall": "prisma generate",
     "task0:dev": "tsx watch --clear-screen=false \"./Stage 0/Task 0/Task 0.ts\"",
     "task0:start": "tsx \"./Stage 0/Task 0/Task 0.ts\"",

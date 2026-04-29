@@ -1,0 +1,127 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run lint checks
+        run: pnpm lint
+
+  build-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run build checks
+        run: pnpm build:check
+
+  tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: hng14
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hng14"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/hng14?schema=public
+      APP_BASE_URL: http://127.0.0.1:3000
+      ACCESS_TOKEN_SECRET: ci-stage3-access-token-secret
+      ALLOWED_ORIGINS: http://127.0.0.1:3000
+      BASE_URL: http://127.0.0.1:3000
+      COOKIE_SECURE: "false"
+      NODE_ENV: test
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm exec prisma migrate deploy
+
+      - name: Seed stage 2 data
+        run: pnpm stage2:seed
+
+      - name: Run stage 2 tests
+        run: pnpm stage2:test
+
+      - name: Start local API server
+        run: pnpm dlx vercel@latest dev --listen 127.0.0.1:3000 > /tmp/vercel-dev.log 2>&1 &
+
+      - name: Wait for local API server
+        run: |
+          for attempt in {1..30}; do
+            http_code="$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/api/auth/me || true)"
+            if [ "$http_code" != "000" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/vercel-dev.log
+          exit 1
+
+      - name: Run stage 3 tests
+        run: pnpm stage3:test

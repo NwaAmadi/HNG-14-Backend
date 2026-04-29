@@ -86,30 +86,32 @@ async function dashboardHandler(request: BackendRequest, response: BackendRespon
     ]);
 
     const roleBreakdownMap = new Map(
-      roleBreakdownRaw.map((entry) => [
+      roleBreakdownRaw.map((entry: (typeof roleBreakdownRaw)[number]) => [
         entry.role,
         typeof entry._count === "object" && entry._count ? (entry._count.role ?? 0) : 0,
       ])
     );
     const genderBreakdownMap = new Map(
-      genderBreakdownRaw.map((entry) => [
+      genderBreakdownRaw.map((entry: (typeof genderBreakdownRaw)[number]) => [
         entry.gender,
         typeof entry._count === "object" && entry._count ? (entry._count.gender ?? 0) : 0,
       ])
     );
     const ageGroupBreakdownMap = new Map(
-      ageGroupBreakdownRaw.map((entry) => [
+      ageGroupBreakdownRaw.map((entry: (typeof ageGroupBreakdownRaw)[number]) => [
         entry.age_group,
         typeof entry._count === "object" && entry._count ? (entry._count.age_group ?? 0) : 0,
       ])
     );
-    const topCountries = countryBreakdownRaw
-      .map((entry) => ({
+    const countryBreakdownEntries = countryBreakdownRaw.map(
+      (entry: (typeof countryBreakdownRaw)[number]) => ({
         country_id: entry.country_id,
         country_name: entry.country_name,
         count:
           typeof entry._count === "object" && entry._count ? (entry._count.country_id ?? 0) : 0,
-      }))
+      })
+    );
+    const topCountries = countryBreakdownEntries
       .sort((left, right) => right.count - left.count)
       .slice(0, TOP_COUNTRIES_LIMIT);
 
