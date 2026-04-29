@@ -35,6 +35,14 @@ Important auth routes:
 - `GET /api/users/me`
 - `POST /api/auth/cli/exchange`
 
+For the browser login flow behind a frontend proxy, `GITHUB_CALLBACK_URL` must point at the web app origin, not the backend origin. Example:
+
+```text
+GITHUB_CALLBACK_URL=https://hng-stage-3-web-repository.vercel.app/api/auth/github/callback
+```
+
+That lets the final callback response set auth cookies on the same origin that later calls `/api/users/me` and `/api/auth/refresh`.
+
 CLI login start expects:
 
 - `client=cli`
