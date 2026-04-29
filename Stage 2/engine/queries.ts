@@ -1,13 +1,11 @@
-import type { Profile } from "@prisma/client";
-
 import { prisma } from "../../lib/db.js";
-import type { ListProfilesQuery, SearchProfilesQuery } from "./types.js";
+import type { ListProfilesQuery, ProfileRecord, SearchProfilesQuery } from "./types.js";
 
 function buildPaginatedSuccessResponse(
   page: number,
   limit: number,
   total: number,
-  data: Profile[]
+  data: ProfileRecord[]
 ) {
   return {
     status: "success" as const,

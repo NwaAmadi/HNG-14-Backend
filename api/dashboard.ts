@@ -103,7 +103,11 @@ async function dashboardHandler(request: BackendRequest, response: BackendRespon
         typeof entry._count === "object" && entry._count ? (entry._count.age_group ?? 0) : 0,
       ])
     );
-    const countryBreakdownEntries = countryBreakdownRaw.map(
+    const countryBreakdownEntries: Array<{
+      country_id: string;
+      country_name: string;
+      count: number;
+    }> = countryBreakdownRaw.map(
       (entry: (typeof countryBreakdownRaw)[number]) => ({
         country_id: entry.country_id,
         country_name: entry.country_name,
@@ -112,7 +116,12 @@ async function dashboardHandler(request: BackendRequest, response: BackendRespon
       })
     );
     const topCountries = countryBreakdownEntries
-      .sort((left, right) => right.count - left.count)
+      .sort(
+        (
+          left: (typeof countryBreakdownEntries)[number],
+          right: (typeof countryBreakdownEntries)[number]
+        ) => right.count - left.count
+      )
       .slice(0, TOP_COUNTRIES_LIMIT);
 
     return json(response, StatusCodes.OK, {

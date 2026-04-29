@@ -1,9 +1,8 @@
-import type { Prisma } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 
 import { createHttpError, parseEnumValue, parseProbability, parseRequiredInteger } from "./query-errors.js";
 import { findCountryCodeInNaturalLanguageQuery, normalizeWords } from "./countries.js";
-import type { ListProfilesQuery, SearchProfilesQuery, SortBy, SortOrder } from "./types.js";
+import type { ListProfilesQuery, ProfileWhereInput, SearchProfilesQuery, SortBy, SortOrder } from "./types.js";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -11,8 +10,8 @@ const MAX_LIMIT = 50;
 const DEFAULT_SORT_BY: SortBy = "created_at";
 const DEFAULT_ORDER: SortOrder = "desc";
 
-function buildCommonWhereInput(url: URL): Prisma.ProfileWhereInput {
-  const where: Prisma.ProfileWhereInput = {};
+function buildCommonWhereInput(url: URL): ProfileWhereInput {
+  const where: ProfileWhereInput = {};
   const gender = parseEnumValue(url.searchParams.get("gender"), ["male", "female"] as const);
   const ageGroup = parseEnumValue(url.searchParams.get("age_group"), [
     "child",
@@ -96,14 +95,14 @@ export function parseListProfilesQuery(url: URL): ListProfilesQuery {
 
 // This parser is intentionally simple and deterministic because the task
 // explicitly forbids AI-based interpretation.
-function parseNaturalLanguageFilters(query: string): Prisma.ProfileWhereInput | null {
+function parseNaturalLanguageFilters(query: string): ProfileWhereInput | null {
   const normalizedQuery = normalizeWords(query);
 
   if (normalizedQuery === "") {
     return null;
   }
 
-  const where: Prisma.ProfileWhereInput = {};
+  const where: ProfileWhereInput = {};
   let foundAnyRule = false;
 
   // If both genders are present, we intentionally skip the gender filter

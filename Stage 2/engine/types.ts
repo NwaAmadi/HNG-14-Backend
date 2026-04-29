@@ -3,7 +3,11 @@ import type {
   ServerResponse as Response,
 } from "node:http";
 
-import type { Prisma } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
+
+type ProfileDelegate = PrismaClient["profile"];
+export type ProfileWhereInput = NonNullable<Parameters<ProfileDelegate["count"]>[0]>["where"];
+export type ProfileRecord = Awaited<ReturnType<ProfileDelegate["findMany"]>>[number];
 
 // These request/response shapes let the route handlers work in both
 // Node's native HTTP server style and framework-style wrappers.
@@ -42,11 +46,11 @@ export type ListProfilesQuery = {
   order: SortOrder;
   page: number;
   sortBy: SortBy;
-  where: Prisma.ProfileWhereInput;
+  where: ProfileWhereInput;
 };
 
 export type SearchProfilesQuery = {
-  interpretedFilters: Prisma.ProfileWhereInput;
+  interpretedFilters: ProfileWhereInput;
   limit: number;
   page: number;
   rawQuery: string;
