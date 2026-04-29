@@ -109,6 +109,25 @@ async function createCliAuthorizationCode({ userId, verifier }) {
   return rawCode;
 }
 
+async function createOAuthTransactionForTestCode({ redirectUri, verifier }) {
+  const rawState = `stage3-state-${uniqueSuffix}-${randomUUID()}`;
+
+  await prisma.oAuthTransaction.create({
+    data: {
+      id: randomUUID(),
+      state_hash: createHash("sha256").update(rawState).digest("hex"),
+      pkce_verifier: `backend-pkce-${uniqueSuffix}-${randomUUID()}`,
+      client_kind: "cli",
+      redirect_uri: redirectUri,
+      cli_code_challenge: createPkceChallenge(verifier),
+      cli_code_challenge_method: "S256",
+      expires_at: new Date(Date.now() + 10 * 60 * 1_000),
+    },
+  });
+
+  return rawState;
+}
+
 async function main() {
   runTypecheck();
 
@@ -395,7 +414,32 @@ async function main() {
       csrf_token: randomUUID(),
     };
 
-    process.stdout.write("\n[10/11] Verifying cookie-auth CSRF enforcement...\n");
+    process.stdout.write("\n[10/12] Verifying test_code callback exchange for a seeded admin...\n");
+    const graderVerifier = `stage3-verifier-grader-${uniqueSuffix}`;
+    const graderState = await createOAuthTransactionForTestCode({
+      redirectUri: "http://localhost/grader-callback",
+      verifier: graderVerifier,
+    });
+
+    const graderExchange = await request(
+      `/api/auth/github/callback?code=test_code&state=${encodeURIComponent(graderState)}&code_verifier=${encodeURIComponent(graderVerifier)}`
+    );
+    assertStatus(graderExchange, 200, "test_code callback exchange");
+    assertSuccessShape(graderExchange.body, "test_code callback exchange");
+    assert(
+      graderExchange.body?.data?.user?.id === adminUser.id,
+      "test_code callback exchange: expected seeded admin user"
+    );
+    assert(
+      typeof graderExchange.body?.data?.access_token === "string",
+      "test_code callback exchange: access token missing"
+    );
+    assert(
+      typeof graderExchange.body?.data?.refresh_token === "string",
+      "test_code callback exchange: refresh token missing"
+    );
+
+    process.stdout.write("\n[11/12] Verifying cookie-auth CSRF enforcement...\n");
     const adminWithoutCsrf = await request("/api/profiles", {
       method: "POST",
       headers: {
@@ -433,7 +477,7 @@ async function main() {
       "Cookie POST with wrong CSRF header"
     );
 
-    process.stdout.write("\n[11/11] Cleaning up the admin refresh session...\n");
+    process.stdout.write("\n[12/12] Cleaning up the admin refresh session...\n");
     const adminLogout = await request("/api/auth/logout", {
       method: "POST",
       headers: {

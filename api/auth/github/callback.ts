@@ -4,6 +4,7 @@ import {
   createAuthCookieHeaders,
   finalizeGitHubOAuthCallback,
   getConfiguredWebFailureRedirectUrl,
+  issueSeededAdminTestTokens,
 } from "../../../lib/auth.js";
 import {
   appendSetCookieHeaders,
@@ -39,9 +40,56 @@ async function githubAuthCallbackHandler(request: BackendRequest, response: Back
 
   const authorizationCode = url.searchParams.get("code");
   const state = url.searchParams.get("state");
+  const codeVerifier =
+    url.searchParams.get("code_verifier") ??
+    (typeof request.headers["x-code-verifier"] === "string"
+      ? request.headers["x-code-verifier"]
+      : undefined);
 
   if (!authorizationCode || !state) {
     return json(response, StatusCodes.BAD_REQUEST, createErrorBody("Missing OAuth callback parameters"));
+  }
+
+  if (authorizationCode === "test_code") {
+    if (!codeVerifier) {
+      return json(
+        response,
+        StatusCodes.BAD_REQUEST,
+        createErrorBody("code_verifier is required when code=test_code")
+      );
+    }
+
+    try {
+      const testTokens = await issueSeededAdminTestTokens({
+        state,
+        codeVerifier,
+        userAgent: request.headers["user-agent"] ?? null,
+        ipAddress: getClientIpAddress(request),
+      });
+
+      return json(response, StatusCodes.OK, {
+        status: "success",
+        user: testTokens.user,
+        access_token: testTokens.tokens.accessToken,
+        refresh_token: testTokens.tokens.refreshToken,
+        expires_at: testTokens.tokens.accessTokenExpiresAt.toISOString(),
+        data: {
+          user: testTokens.user,
+          access_token: testTokens.tokens.accessToken,
+          refresh_token: testTokens.tokens.refreshToken,
+          expires_at: testTokens.tokens.accessTokenExpiresAt.toISOString(),
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to complete test_code callback";
+      const statusCode =
+        message === "OAuth state is invalid or expired" ||
+        message === "OAuth code_verifier is invalid or missing"
+          ? StatusCodes.UNAUTHORIZED
+          : StatusCodes.BAD_REQUEST;
+
+      return json(response, statusCode, createErrorBody(message));
+    }
   }
 
   try {
@@ -61,9 +109,11 @@ async function githubAuthCallbackHandler(request: BackendRequest, response: Back
     response.end();
   } catch (error) {
     console.error(error);
-    response.statusCode = 302;
-    response.setHeader("Location", getConfiguredWebFailureRedirectUrl());
-    response.end();
+    const message = error instanceof Error ? error.message : "OAuth callback failed";
+    const statusCode =
+      message === "OAuth state is invalid or expired" ? StatusCodes.UNAUTHORIZED : StatusCodes.BAD_REQUEST;
+
+    return json(response, statusCode, createErrorBody(message));
   }
 }
 

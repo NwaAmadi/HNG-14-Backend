@@ -1,5 +1,6 @@
 import { StatusCodes } from "http-status-codes";
 
+import { prisma } from "../../lib/db.js";
 import {
   type BackendRequest,
   type BackendResponse,
@@ -27,12 +28,23 @@ async function meHandler(request: BackendRequest, response: BackendResponse) {
     return json(response, StatusCodes.UNAUTHORIZED, createErrorBody("Authentication required"));
   }
 
+  const user = await prisma.user.findUnique({
+    where: {
+      id: auth.userId,
+    },
+  });
+
+  if (!user) {
+    return json(response, StatusCodes.UNAUTHORIZED, createErrorBody("Authentication required"));
+  }
+
   return json(response, StatusCodes.OK, {
     status: "success",
     data: {
-      id: auth.userId,
-      username: auth.username,
-      role: auth.role,
+      id: user.id,
+      github_id: user.github_id,
+      username: user.username,
+      role: user.role,
     },
   });
 }

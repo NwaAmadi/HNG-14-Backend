@@ -34,11 +34,18 @@ async function logoutHandler(request: BackendRequest, response: BackendResponse)
   }>(request);
   const refreshToken = resolveRefreshToken(request.headers.cookie, body.refresh_token);
 
-  if (refreshToken) {
-    await revokeRefreshToken(refreshToken);
+  if (!refreshToken) {
+    appendSetCookieHeaders(response, createClearedAuthCookieHeaders());
+    return json(response, StatusCodes.BAD_REQUEST, createErrorBody("refresh_token is required"));
   }
 
+  const revoked = await revokeRefreshToken(refreshToken);
   appendSetCookieHeaders(response, createClearedAuthCookieHeaders());
+
+  if (!revoked) {
+    return json(response, StatusCodes.UNAUTHORIZED, createErrorBody("Invalid or expired refresh token"));
+  }
+
   response.statusCode = StatusCodes.NO_CONTENT;
   response.end();
 }

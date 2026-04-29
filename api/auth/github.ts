@@ -33,10 +33,10 @@ async function githubAuthStartHandler(request: BackendRequest, response: Backend
 
   const clientKind = url.searchParams.get("client") === "cli" ? "cli" : "web";
   const redirectUri = url.searchParams.get("redirect_uri") ?? undefined;
-  const cliCodeChallenge = url.searchParams.get("code_challenge") ?? undefined;
-  const cliCodeChallengeMethod = url.searchParams.get("code_challenge_method") ?? undefined;
+  const codeChallenge = url.searchParams.get("code_challenge") ?? undefined;
+  const codeChallengeMethod = url.searchParams.get("code_challenge_method") ?? undefined;
 
-  if (clientKind === "cli" && (!redirectUri || !cliCodeChallenge || cliCodeChallengeMethod !== "S256")) {
+  if (clientKind === "cli" && (!redirectUri || !codeChallenge || codeChallengeMethod !== "S256")) {
     return json(
       response,
       StatusCodes.BAD_REQUEST,
@@ -47,8 +47,8 @@ async function githubAuthStartHandler(request: BackendRequest, response: Backend
   const authStart = await createGitHubOAuthStart({
     clientKind,
     redirectUri,
-    cliCodeChallenge,
-    cliCodeChallengeMethod,
+    codeChallenge,
+    codeChallengeMethod,
   });
 
   response.statusCode = 302;

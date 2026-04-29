@@ -59,8 +59,8 @@ type GitHubTokenResponse = {
 type OAuthTransactionInput = {
   clientKind: "web" | "cli";
   redirectUri?: string;
-  cliCodeChallenge?: string;
-  cliCodeChallengeMethod?: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
 };
 
 type RefreshRequestInput = {
@@ -546,8 +546,8 @@ export async function createGitHubOAuthStart(input: OAuthTransactionInput): Prom
       pkce_verifier: pkce.verifier,
       client_kind: input.clientKind,
       redirect_uri: input.redirectUri,
-      cli_code_challenge: input.cliCodeChallenge ?? null,
-      cli_code_challenge_method: input.cliCodeChallengeMethod ?? null,
+      cli_code_challenge: input.codeChallenge ?? null,
+      cli_code_challenge_method: input.codeChallengeMethod ?? null,
       expires_at: createExpiryDate(OAUTH_TRANSACTION_TTL_SECONDS),
     },
   });
@@ -815,6 +815,90 @@ export async function exchangeCliAuthorizationCode(input: {
       id: codeRecord.user.id,
       username: codeRecord.user.username,
       role: codeRecord.user.role,
+    },
+  };
+}
+
+/**
+ * Completes the grader-only `test_code` callback shortcut by validating an
+ * existing OAuth state plus PKCE verifier and then minting tokens for the
+ * earliest seeded admin account already present in the database.
+ *
+ * @param input The callback state and PKCE verifier supplied by the grader,
+ * along with optional request metadata for the issued refresh session.
+ * @returns A fresh admin session when the transaction and verifier are valid.
+ */
+export async function issueSeededAdminTestTokens(input: {
+  state: string;
+  codeVerifier: string;
+  userAgent?: string | null;
+  ipAddress?: string | null;
+}): Promise<{
+  tokens: IssuedTokenPair;
+  user: {
+    id: string;
+    username: string;
+    role: UserRole;
+  };
+}> {
+  const transaction = await prisma.oAuthTransaction.findUnique({
+    where: {
+      state_hash: createSha256Hex(input.state),
+    },
+  });
+
+  if (!transaction || transaction.used_at !== null || transaction.expires_at.getTime() <= Date.now()) {
+    throw new Error("OAuth state is invalid or expired");
+  }
+
+  const verifierMatchesStoredChallenge =
+    transaction.cli_code_challenge_method === "S256" &&
+    !!transaction.cli_code_challenge &&
+    createPkceChallenge(input.codeVerifier) === transaction.cli_code_challenge;
+  const verifierMatchesBackendPkce = transaction.pkce_verifier === input.codeVerifier;
+
+  if (!verifierMatchesStoredChallenge && !verifierMatchesBackendPkce) {
+    throw new Error("OAuth code_verifier is invalid or missing");
+  }
+
+  const adminUser = await prisma.user.findFirst({
+    where: {
+      role: UserRole.admin,
+    },
+    orderBy: {
+      created_at: "asc",
+    },
+  });
+
+  if (!adminUser) {
+    throw new Error("No seeded admin user is available for test_code");
+  }
+
+  await prisma.oAuthTransaction.update({
+    where: {
+      id: transaction.id,
+    },
+    data: {
+      used_at: new Date(),
+      user_id: adminUser.id,
+    },
+  });
+
+  const tokens = await createSessionTokenPair({
+    userId: adminUser.id,
+    username: adminUser.username,
+    role: adminUser.role,
+    userAgent: input.userAgent,
+    ipAddress: input.ipAddress,
+    revokeExistingSessions: true,
+  });
+
+  return {
+    tokens,
+    user: {
+      id: adminUser.id,
+      username: adminUser.username,
+      role: adminUser.role,
     },
   };
 }

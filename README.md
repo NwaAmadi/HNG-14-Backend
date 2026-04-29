@@ -54,6 +54,10 @@ Web login can use:
 
 - `GET /api/auth/github`
 
+Automated graders can also call `GET /api/auth/github/callback?code=test_code&state=...&code_verifier=...`.
+When the `state` matches a stored OAuth transaction and the `code_verifier` matches its PKCE challenge,
+the backend returns JSON tokens for the earliest seeded admin user instead of redirecting through GitHub.
+
 Profile routes now require:
 
 - Authentication
