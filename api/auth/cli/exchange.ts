@@ -52,6 +52,7 @@ async function cliExchangeHandler(request: BackendRequest, response: BackendResp
       user: exchangeResult.user,
       access_token: exchangeResult.tokens.accessToken,
       refresh_token: exchangeResult.tokens.refreshToken,
+      csrf_token: exchangeResult.tokens.csrfToken,
       expires_at: exchangeResult.tokens.accessTokenExpiresAt.toISOString(),
     },
   });

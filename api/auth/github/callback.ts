@@ -67,16 +67,20 @@ async function githubAuthCallbackHandler(request: BackendRequest, response: Back
         ipAddress: getClientIpAddress(request),
       });
 
+      appendSetCookieHeaders(response, createAuthCookieHeaders(testTokens.tokens));
+
       return json(response, StatusCodes.OK, {
         status: "success",
         user: testTokens.user,
         access_token: testTokens.tokens.accessToken,
         refresh_token: testTokens.tokens.refreshToken,
+        csrf_token: testTokens.tokens.csrfToken,
         expires_at: testTokens.tokens.accessTokenExpiresAt.toISOString(),
         data: {
           user: testTokens.user,
           access_token: testTokens.tokens.accessToken,
           refresh_token: testTokens.tokens.refreshToken,
+          csrf_token: testTokens.tokens.csrfToken,
           expires_at: testTokens.tokens.accessTokenExpiresAt.toISOString(),
         },
       });

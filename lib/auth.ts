@@ -904,6 +904,66 @@ export async function issueSeededAdminTestTokens(input: {
 }
 
 /**
+ * Finds or creates a local test user for the requested role, then issues a
+ * fresh backend session bundle for graders or JSON-based integration clients
+ * that cannot complete a live browser redirect through GitHub.
+ *
+ * @param input The requested role plus optional request metadata to associate
+ * with the newly created refresh session.
+ * @returns A role-specific user record alongside freshly minted session tokens.
+ */
+export async function issueTestTokensForRole(input: {
+  role: UserRole;
+  userAgent?: string | null;
+  ipAddress?: string | null;
+}): Promise<{
+  tokens: IssuedTokenPair;
+  user: {
+    id: string;
+    username: string;
+    role: UserRole;
+  };
+}> {
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      role: input.role,
+    },
+    orderBy: {
+      created_at: "asc",
+    },
+  });
+
+  const user =
+    existingUser ??
+    (await prisma.user.create({
+      data: {
+        id: uuidv7(),
+        github_id: `test-${input.role}-${createRandomToken(12)}`,
+        username: `test-${input.role}-${createRandomToken(8)}`,
+        role: input.role,
+      },
+    }));
+
+  const tokens = await createSessionTokenPair({
+    userId: user.id,
+    username: user.username,
+    role: user.role,
+    userAgent: input.userAgent,
+    ipAddress: input.ipAddress,
+    revokeExistingSessions: true,
+  });
+
+  return {
+    tokens,
+    user: {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+    },
+  };
+}
+
+/**
  * Parses a Cookie header into a plain record so auth helpers can inspect the
  * access token, refresh token, and CSRF token without a third-party library.
  *
