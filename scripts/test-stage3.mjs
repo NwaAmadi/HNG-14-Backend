@@ -173,10 +173,52 @@ async function main() {
       csrf_token: "local-csrf-not-needed-for-bearer",
     };
 
+    process.stdout.write("\n[3b/11] Verifying a new login revokes older sessions...\n");
+    const analystSecondVerifier = `stage3-verifier-analyst-second-${uniqueSuffix}`;
+    const analystSecondCode = await createCliAuthorizationCode({
+      userId: analystUser.id,
+      verifier: analystSecondVerifier,
+    });
+
+    const analystSecondExchange = await request("/api/auth/cli/exchange", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        code: analystSecondCode,
+        code_verifier: analystSecondVerifier,
+      }),
+    });
+    assertStatus(analystSecondExchange, 200, "Second CLI exchange");
+    assertSuccessShape(analystSecondExchange.body, "Second CLI exchange");
+
+    const revokedFirstSessionRefresh = await request("/api/auth/refresh", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        refresh_token: analystTokens.refresh_token,
+      }),
+    });
+    assertStatus(revokedFirstSessionRefresh, 401, "Refresh after newer login");
+    assertErrorShape(
+      revokedFirstSessionRefresh.body,
+      "Invalid or expired refresh token",
+      "Refresh after newer login"
+    );
+
+    const analystCurrentTokens = {
+      access_token: analystSecondExchange.body.data.access_token,
+      refresh_token: analystSecondExchange.body.data.refresh_token,
+      csrf_token: "local-csrf-not-needed-for-bearer",
+    };
+
     process.stdout.write("\n[4/11] Verifying bearer auth against /api/auth/me...\n");
     const meAuthorized = await request("/api/auth/me", {
       headers: {
-        Authorization: `Bearer ${analystTokens.access_token}`,
+        Authorization: `Bearer ${analystCurrentTokens.access_token}`,
       },
     });
     assertStatus(meAuthorized, 200, "Auth me with bearer");
@@ -195,7 +237,7 @@ async function main() {
 
     const missingVersion = await request("/api/profiles", {
       headers: {
-        Authorization: `Bearer ${analystTokens.access_token}`,
+        Authorization: `Bearer ${analystCurrentTokens.access_token}`,
       },
     });
     assertStatus(missingVersion, 400, "Protected route without API version");
@@ -207,7 +249,7 @@ async function main() {
 
     const allowedList = await request("/api/profiles", {
       headers: {
-        Authorization: `Bearer ${analystTokens.access_token}`,
+        Authorization: `Bearer ${analystCurrentTokens.access_token}`,
         "X-API-Version": "1",
       },
     });
@@ -217,7 +259,7 @@ async function main() {
     const forbiddenCreate = await request("/api/profiles", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${analystTokens.access_token}`,
+        Authorization: `Bearer ${analystCurrentTokens.access_token}`,
         "X-API-Version": "1",
         "Content-Type": "application/json",
       },
@@ -235,7 +277,7 @@ async function main() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        refresh_token: analystTokens.refresh_token,
+        refresh_token: analystCurrentTokens.refresh_token,
       }),
     });
     assertStatus(refreshResult, 200, "Refresh token rotation");

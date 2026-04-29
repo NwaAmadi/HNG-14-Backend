@@ -73,6 +73,7 @@ type SessionIssueInput = {
   role: UserRole;
   userAgent?: string | null;
   ipAddress?: string | null;
+  revokeExistingSessions?: boolean;
 };
 
 type CookieRecord = Record<string, string>;
@@ -363,6 +364,22 @@ async function createSessionTokenPair(input: SessionIssueInput): Promise<IssuedT
     iat: nowInSeconds,
     exp: nowInSeconds + ACCESS_TOKEN_TTL_SECONDS,
   });
+
+  if (input.revokeExistingSessions) {
+    await prisma.refreshToken.updateMany({
+      where: {
+        user_id: input.userId,
+        revoked_at: null,
+        expires_at: {
+          gt: new Date(),
+        },
+      },
+      data: {
+        revoked_at: new Date(),
+        last_used_at: new Date(),
+      },
+    });
+  }
 
   await prisma.refreshToken.create({
     data: {
@@ -683,6 +700,7 @@ export async function finalizeGitHubOAuthCallback(input: {
       role: user.role,
       userAgent: input.userAgent,
       ipAddress: input.ipAddress,
+      revokeExistingSessions: true,
     });
 
     return {
@@ -786,6 +804,7 @@ export async function exchangeCliAuthorizationCode(input: {
     role: codeRecord.user.role,
     userAgent: input.userAgent,
     ipAddress: input.ipAddress,
+    revokeExistingSessions: true,
   });
 
   return {
