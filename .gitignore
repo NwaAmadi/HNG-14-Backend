@@ -8,3 +8,4 @@ env
 .env
 Stage 2/README2.md
 Stage 2/insert-live-coverage.ts
+watch.json
