@@ -103,3 +103,18 @@ model CliAuthorizationCode {
   @@index([expires_at])
   @@index([used_at])
 }
+
+model RateLimitCounter {
+  id                String   @id @db.Uuid
+  bucket_name       String   @db.VarChar(32)
+  subject_key       String   @db.VarChar(255)
+  window_started_at DateTime
+  expires_at        DateTime
+  request_count     Int      @default(1)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  @@unique([bucket_name, subject_key, window_started_at])
+  @@index([expires_at])
+  @@index([bucket_name, subject_key])
+}

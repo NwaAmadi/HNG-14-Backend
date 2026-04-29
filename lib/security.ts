@@ -3,7 +3,9 @@ import type {
   ServerResponse as Response,
 } from "node:http";
 
+import * as PrismaClientPackage from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
+import { v7 as uuidv7 } from "uuid";
 
 import {
   type AuthenticatedRequestContext,
@@ -12,6 +14,7 @@ import {
   parseCookieHeader,
   validateCsrfToken,
 } from "./auth.js";
+import { prisma } from "./db.js";
 import { env, parseCommaSeparatedEnv } from "./env.js";
 
 export type BackendRequest = Request & {
@@ -57,8 +60,7 @@ const rateLimitWindows = {
     windowMs: 60_000,
   },
 } as const;
-
-const requestBuckets = new Map<string, number[]>();
+const { Prisma } = PrismaClientPackage;
 
 /**
  * Sends JSON in a way that works for both raw Node responses and frameworks
@@ -243,39 +245,74 @@ function attachRequestLogger(request: BackendRequest, response: BackendResponse)
  * @returns A decision describing whether the request is within quota and how
  * long the caller should wait before retrying when it is not.
  */
-function checkRateLimit(bucketName: "auth" | "api", key: string): RateLimitDecision {
+async function checkRateLimit(bucketName: "auth" | "api", key: string): Promise<RateLimitDecision> {
   const bucketConfig = rateLimitWindows[bucketName];
   const now = Date.now();
-  const bucketKey = `${bucketName}:${key}`;
-  const timestamps = requestBuckets.get(bucketKey) ?? [];
-  const activeTimestamps = timestamps.filter(
-    (timestamp) => now - timestamp < bucketConfig.windowMs
+  const windowStartedAt = new Date(Math.floor(now / bucketConfig.windowMs) * bucketConfig.windowMs);
+  const expiresAt = new Date(windowStartedAt.getTime() + bucketConfig.windowMs);
+
+  const counterRows = await prisma.$queryRaw<Array<{ request_count: number; retry_after_seconds: number }>>(
+    Prisma.sql`
+      INSERT INTO "RateLimitCounter" (
+        "id",
+        "bucket_name",
+        "subject_key",
+        "window_started_at",
+        "expires_at",
+        "request_count",
+        "updated_at"
+      )
+      VALUES (
+        ${uuidv7()},
+        ${bucketName},
+        ${key},
+        ${windowStartedAt},
+        ${expiresAt},
+        1,
+        CURRENT_TIMESTAMP
+      )
+      ON CONFLICT ("bucket_name", "subject_key", "window_started_at")
+      DO UPDATE SET
+        "request_count" = "RateLimitCounter"."request_count" + 1,
+        "updated_at" = CURRENT_TIMESTAMP
+      RETURNING
+        "request_count",
+        GREATEST(
+          1,
+          CEIL(EXTRACT(EPOCH FROM ("expires_at" - CURRENT_TIMESTAMP)))
+        )::INTEGER AS "retry_after_seconds"
+    `
   );
 
-  if (activeTimestamps.length >= bucketConfig.maxRequests) {
-    requestBuckets.set(bucketKey, activeTimestamps);
-    const retryAfterMs = bucketConfig.windowMs - (now - activeTimestamps[0]);
+  const counter = counterRows[0];
+
+  if (!counter) {
     return {
       allowed: false,
-      retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1_000)),
+      retryAfterSeconds: Math.max(1, Math.ceil(bucketConfig.windowMs / 1_000)),
     };
   }
 
-  activeTimestamps.push(now);
-  requestBuckets.set(bucketKey, activeTimestamps);
+  if (counter.request_count > bucketConfig.maxRequests) {
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(1, counter.retry_after_seconds),
+    };
+  }
+
   return {
     allowed: true,
     retryAfterSeconds: 0,
   };
 }
 
-function applyRateLimit(
+async function applyRateLimit(
   request: BackendRequest,
   response: BackendResponse,
   bucketName: "auth" | "api",
   key: string
-): BackendResponse | null {
-  const decision = checkRateLimit(bucketName, key);
+): Promise<BackendResponse | null> {
+  const decision = await checkRateLimit(bucketName, key);
 
   if (decision.allowed) {
     return null;
@@ -305,7 +342,7 @@ export function withPublicRoute(handler: BackendHandler, options: PublicRouteOpt
       return;
     }
 
-    const rateLimitResponse = applyRateLimit(
+    const rateLimitResponse = await applyRateLimit(
       request,
       response,
       options.rateLimitBucket,
@@ -361,7 +398,7 @@ export function withProtectedApiRoute(
 
     request.auth = auth;
 
-    const rateLimitResponse = applyRateLimit(request, response, "api", auth.userId);
+    const rateLimitResponse = await applyRateLimit(request, response, "api", auth.userId);
 
     if (rateLimitResponse) {
       return rateLimitResponse;
