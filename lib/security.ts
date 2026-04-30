@@ -50,6 +50,11 @@ type RateLimitDecision = {
   retryAfterSeconds: number;
 };
 
+type RateLimitCounterRow = {
+  request_count: number;
+  retry_after_seconds: number;
+};
+
 const rateLimitWindows = {
   auth: {
     maxRequests: 10,
@@ -249,10 +254,11 @@ async function checkRateLimit(bucketName: "auth" | "api", key: string): Promise<
   const bucketConfig = rateLimitWindows[bucketName];
   const now = Date.now();
   const windowStartedAt = new Date(Math.floor(now / bucketConfig.windowMs) * bucketConfig.windowMs);
+  const previousWindowStartedAt = new Date(windowStartedAt.getTime() - bucketConfig.windowMs);
   const expiresAt = new Date(windowStartedAt.getTime() + bucketConfig.windowMs);
 
-  const counterRows = await prisma.$queryRaw<Array<{ request_count: number; retry_after_seconds: number }>>(
-    Prisma.sql`
+  const [counterRows, previousWindowRows] = await Promise.all([
+    prisma.$queryRaw<Array<RateLimitCounterRow>>(Prisma.sql`
       INSERT INTO "RateLimitCounter" (
         "id",
         "bucket_name",
@@ -281,8 +287,16 @@ async function checkRateLimit(bucketName: "auth" | "api", key: string): Promise<
           1,
           CEIL(EXTRACT(EPOCH FROM ("expires_at" - CURRENT_TIMESTAMP)))
         )::INTEGER AS "retry_after_seconds"
-    `
-  );
+    `),
+    prisma.$queryRaw<Array<{ request_count: number }>>(Prisma.sql`
+      SELECT "request_count"
+      FROM "RateLimitCounter"
+      WHERE "bucket_name" = ${bucketName}
+        AND "subject_key" = ${key}
+        AND "window_started_at" = ${previousWindowStartedAt}
+      LIMIT 1
+    `),
+  ]);
 
   const counter = counterRows[0];
 
@@ -293,7 +307,15 @@ async function checkRateLimit(bucketName: "auth" | "api", key: string): Promise<
     };
   }
 
-  if (counter.request_count > bucketConfig.maxRequests) {
+  const previousWindowCount = previousWindowRows[0]?.request_count ?? 0;
+  const elapsedInCurrentWindowMs = now - windowStartedAt.getTime();
+  const previousWindowWeight = Math.max(
+    0,
+    (bucketConfig.windowMs - elapsedInCurrentWindowMs) / bucketConfig.windowMs
+  );
+  const weightedRequestCount = counter.request_count + previousWindowCount * previousWindowWeight;
+
+  if (weightedRequestCount > bucketConfig.maxRequests) {
     return {
       allowed: false,
       retryAfterSeconds: Math.max(1, counter.retry_after_seconds),
@@ -420,6 +442,15 @@ export function withProtectedApiRoute(
 
     const method = request.method ?? "GET";
     const isUnsafeMethod = method !== "GET" && method !== "HEAD";
+
+    if (
+      isUnsafeMethod &&
+      request.body === undefined &&
+      typeof request.headers["content-type"] === "string" &&
+      request.headers["content-type"].includes("application/json")
+    ) {
+      request.body = await readJsonBody(request);
+    }
 
     if (
       isUnsafeMethod &&
