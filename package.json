@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@10.12.2",
   "scripts": {
-    "dev": "vercel dev",
+    "vercel:dev": "vercel dev",
     "lint": "pnpm exec tsc --noEmit",
     "typecheck": "pnpm exec tsc --noEmit",
     "build:check": "pnpm exec prisma validate",
