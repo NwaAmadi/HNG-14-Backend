@@ -18,7 +18,7 @@ import {
 } from "../../../lib/security.js";
 
 /**
- * Completes the GitHub OAuth callback by validating the `code` and `state`
+ * Completes the GitHub App callback by validating the `code` and `state`
  * query parameters, then finalizing either the web or CLI login path.
  *
  * @param request The incoming callback request from GitHub containing OAuth

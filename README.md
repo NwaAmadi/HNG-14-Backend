@@ -12,19 +12,21 @@ The shared database schema remains in [prisma/schema.prisma](/home/gospel/Deskto
 
 This repository now contains the backend-only Stage 3 foundation:
 
-- GitHub OAuth entrypoints under `/auth/*`
+- GitHub App user-login entrypoints under `/auth/*`
 - refresh-token rotation and logout support
 - RBAC-protected `/api/*` routes
 - `X-API-Version: 1` enforcement for profile endpoints
 - request logging and in-memory rate limiting
 
-Copy values from `.env.example` into your local `.env` or `.env.local` and replace the placeholder GitHub credentials with your own:
+Copy values from `.env.example` into your local `.env` or `.env.local` and replace the placeholder GitHub App credentials with your own:
 
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
+- `GITHUB_APP_CLIENT_ID`
+- `GITHUB_APP_CLIENT_SECRET`
 - `GITHUB_CALLBACK_URL`
 - `ACCESS_TOKEN_SECRET`
 - `APP_BASE_URL`
+
+Legacy `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are still accepted as fallbacks during migration, but new setups should use the `GITHUB_APP_*` names.
 
 Important auth routes:
 
@@ -42,6 +44,8 @@ GITHUB_CALLBACK_URL=https://hng-stage-3-web-repository.vercel.app/auth/github/ca
 ```
 
 That lets the final callback response set auth cookies on the same origin that later calls `/api/users/me` and `/auth/refresh`.
+
+This backend now expects a GitHub App configured for user authorization, using the app's client ID and client secret for the `/auth/github` and `/auth/github/callback` flow.
 
 CLI login start expects:
 

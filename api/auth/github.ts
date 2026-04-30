@@ -17,8 +17,8 @@ import {
 } from "../../lib/security.js";
 
 /**
- * Starts the GitHub OAuth flow for either the browser-oriented web client or
- * the local CLI login flow, depending on the request query parameters.
+ * Starts the GitHub App user-login flow for either the browser-oriented web
+ * client or the local CLI login flow, depending on the request query parameters.
  *
  * @param request The incoming HTTP request that may include `client`,
  * `redirect_uri`, `code_challenge`, and `code_challenge_method` query params.

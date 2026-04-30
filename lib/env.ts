@@ -28,6 +28,8 @@ export const env = createEnv({
       .default("development"),
     DATABASE_URL: z.string().trim().min(1, "DATABASE_URL is required"),
     APP_BASE_URL: z.string().trim().min(1).optional(),
+    GITHUB_APP_CLIENT_ID: z.string().trim().min(1).optional(),
+    GITHUB_APP_CLIENT_SECRET: z.string().trim().min(1).optional(),
     GITHUB_CLIENT_ID: z.string().trim().min(1).optional(),
     GITHUB_CLIENT_SECRET: z.string().trim().min(1).optional(),
     GITHUB_CALLBACK_URL: z.string().trim().min(1).optional(),

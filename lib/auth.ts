@@ -193,7 +193,8 @@ function getGitHubCallbackUrl(): string {
 
 /**
  * Reads the frontend success destination used after browser-based login so the
- * backend can complete OAuth and then hand the user back to the web portal.
+ * backend can complete GitHub App sign-in and then hand the user back to the
+ * web portal.
  *
  * @returns The URL the backend should redirect web logins to after success.
  */
@@ -209,6 +210,32 @@ function getWebSuccessRedirectUrl(): string {
  */
 function getWebFailureRedirectUrl(): string {
   return env.AUTH_WEB_FAILURE_URL || `${getBackendBaseUrl()}/login?error=oauth_failed`;
+}
+
+/**
+ * Returns the GitHub App client ID used for the user-to-server web flow while
+ * tolerating the legacy OAuth-style variable names during migration.
+ *
+ * @returns The configured GitHub App client ID.
+ */
+function getGitHubAppClientId(): string {
+  return requireConfiguredEnvironmentValue(
+    "GITHUB_APP_CLIENT_ID",
+    env.GITHUB_APP_CLIENT_ID || env.GITHUB_CLIENT_ID
+  );
+}
+
+/**
+ * Returns the GitHub App client secret used for the user-to-server code
+ * exchange while tolerating the legacy OAuth-style variable names during migration.
+ *
+ * @returns The configured GitHub App client secret.
+ */
+function getGitHubAppClientSecret(): string {
+  return requireConfiguredEnvironmentValue(
+    "GITHUB_APP_CLIENT_SECRET",
+    env.GITHUB_APP_CLIENT_SECRET || env.GITHUB_CLIENT_SECRET
+  );
 }
 
 /**
@@ -525,7 +552,7 @@ async function upsertGitHubUser(profile: GitHubUserProfile) {
 }
 
 /**
- * Creates and stores an OAuth transaction record so the backend can validate
+ * Creates and stores a GitHub App login transaction so the backend can validate
  * state, remember the PKCE verifier, and coordinate web versus CLI completion.
  *
  * @param input The caller-supplied redirect and client mode details that define
@@ -553,10 +580,7 @@ export async function createGitHubOAuthStart(input: OAuthTransactionInput): Prom
   });
 
   const authorizationUrl = new URL("https://github.com/login/oauth/authorize");
-  authorizationUrl.searchParams.set(
-    "client_id",
-    requireConfiguredEnvironmentValue("GITHUB_CLIENT_ID", env.GITHUB_CLIENT_ID)
-  );
+  authorizationUrl.searchParams.set("client_id", getGitHubAppClientId());
   authorizationUrl.searchParams.set("redirect_uri", getGitHubCallbackUrl());
   authorizationUrl.searchParams.set("scope", "read:user user:email");
   authorizationUrl.searchParams.set("state", state);
@@ -570,14 +594,15 @@ export async function createGitHubOAuthStart(input: OAuthTransactionInput): Prom
 }
 
 /**
- * Exchanges the short-lived GitHub authorization code for a GitHub access token
- * using the exact PKCE verifier that was created when the login was started.
+ * Exchanges the short-lived GitHub App authorization code for a GitHub user
+ * access token using the exact PKCE verifier that was created when the login
+ * was started.
  *
  * @param authorizationCode The `code` query parameter returned by GitHub after
  * the user approves the OAuth request in the browser.
  * @param pkceVerifier The original backend-generated verifier bound to this
  * OAuth transaction, required by GitHub for PKCE validation.
- * @returns The GitHub OAuth access token needed to fetch the user's profile.
+ * @returns The GitHub App user access token needed to fetch the user's profile.
  */
 async function exchangeGitHubCodeForAccessToken(
   authorizationCode: string,
@@ -590,11 +615,8 @@ async function exchangeGitHubCodeForAccessToken(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      client_id: requireConfiguredEnvironmentValue("GITHUB_CLIENT_ID", env.GITHUB_CLIENT_ID),
-      client_secret: requireConfiguredEnvironmentValue(
-        "GITHUB_CLIENT_SECRET",
-        env.GITHUB_CLIENT_SECRET
-      ),
+      client_id: getGitHubAppClientId(),
+      client_secret: getGitHubAppClientSecret(),
       code: authorizationCode,
       redirect_uri: getGitHubCallbackUrl(),
       code_verifier: pkceVerifier,
@@ -618,8 +640,8 @@ async function exchangeGitHubCodeForAccessToken(
  * Fetches the authenticated GitHub user profile that will be mirrored into the
  * local users table and used as the identity anchor for this backend session.
  *
- * @param githubAccessToken The OAuth access token GitHub issued after a
- * successful authorization code exchange.
+ * @param githubAccessToken The GitHub App user access token GitHub issued
+ * after a successful authorization code exchange.
  * @returns The small GitHub profile subset the backend needs for identity sync.
  */
 async function fetchGitHubUserProfile(githubAccessToken: string): Promise<GitHubUserProfile> {
@@ -639,7 +661,7 @@ async function fetchGitHubUserProfile(githubAccessToken: string): Promise<GitHub
 }
 
 /**
- * Completes the GitHub callback by validating state, exchanging the code,
+ * Completes the GitHub App callback by validating state, exchanging the code,
  * upserting the local user, and then branching into web or CLI completion.
  *
  * @param authorizationCode The GitHub `code` query parameter produced after the
