@@ -6,8 +6,15 @@ import {
   profilesHandler as baseProfilesHandler,
   searchProfilesHandler as baseSearchProfilesHandler,
 } from "../Stage 2/profile-engine.js";
-import { withProfileApiRoute } from "../lib/security.js";
-import { type BackendRequest, type BackendResponse, createErrorBody, getRequestUrl, json } from "../lib/security.js";
+import {
+  type BackendRequest,
+  type BackendResponse,
+  createErrorBody,
+  getRequestUrl,
+  getRequiredAuthContext,
+  json,
+  withProfileApiRoute,
+} from "../lib/security.js";
 
 function escapeCsvValue(value: unknown): string {
   if (value === null || value === undefined) {
@@ -27,10 +34,10 @@ function buildProfilesCsv(rows: Array<Record<string, unknown>>): string {
   const headers = [
     "id",
     "name",
-    "age",
-    "age_group",
     "gender",
     "gender_probability",
+    "age",
+    "age_group",
     "country_id",
     "country_name",
     "country_probability",
@@ -45,14 +52,71 @@ function buildProfilesCsv(rows: Array<Record<string, unknown>>): string {
   return `${lines.join("\n")}\n`;
 }
 
-export const profilesHandler = withProfileApiRoute(baseProfilesHandler, {
+function buildPaginationLinks(url: URL, page: number, limit: number, totalPages: number) {
+  const createPageUrl = (targetPage: number) => {
+    const nextUrl = new URL(url.toString());
+    nextUrl.searchParams.set("page", String(targetPage));
+    nextUrl.searchParams.set("limit", String(limit));
+    return `${nextUrl.pathname}${nextUrl.search}`;
+  };
+
+  return {
+    self: createPageUrl(page),
+    first: createPageUrl(1),
+    last: createPageUrl(Math.max(1, totalPages)),
+    prev: page > 1 ? createPageUrl(page - 1) : null,
+    next: page < totalPages ? createPageUrl(page + 1) : null,
+  };
+}
+
+function withPaginationMetadata(url: URL, result: {
+  status: "success";
+  page: number;
+  limit: number;
+  total: number;
+  data: unknown[];
+}) {
+  const totalPages = Math.max(1, Math.ceil(result.total / result.limit));
+
+  return {
+    ...result,
+    total_pages: totalPages,
+    links: buildPaginationLinks(url, result.page, result.limit, totalPages),
+  };
+}
+
+async function profilesRouteHandler(request: BackendRequest, response: BackendResponse) {
+  if (request.method === "POST") {
+    const auth = getRequiredAuthContext(request);
+
+    if (auth.role !== "admin") {
+      return json(response, 403, createErrorBody("Forbidden"));
+    }
+  }
+
+  return baseProfilesHandler(request, response);
+}
+
+async function profileByIdRouteHandler(request: BackendRequest, response: BackendResponse) {
+  if (request.method === "DELETE") {
+    const auth = getRequiredAuthContext(request);
+
+    if (auth.role !== "admin") {
+      return json(response, 403, createErrorBody("Forbidden"));
+    }
+  }
+
+  return baseProfileByIdHandler(request, response);
+}
+
+export const profilesHandler = withProfileApiRoute(profilesRouteHandler, {
   allowedRoles: {
     GET: ["admin", "analyst"],
     POST: ["admin"],
   },
 });
 
-export const profileByIdHandler = withProfileApiRoute(baseProfileByIdHandler, {
+export const profileByIdHandler = withProfileApiRoute(profileByIdRouteHandler, {
   allowedRoles: {
     GET: ["admin", "analyst"],
     DELETE: ["admin"],
@@ -78,7 +142,7 @@ async function baseExportProfilesHandler(request: BackendRequest, response: Back
 
   try {
     const query = parseListProfilesQuery(url);
-    const result = await baseListProfiles(query);
+    const result = withPaginationMetadata(url, await baseListProfiles(query));
     const format = (url.searchParams.get("format") ?? "csv").trim().toLowerCase();
 
     if (format === "json") {

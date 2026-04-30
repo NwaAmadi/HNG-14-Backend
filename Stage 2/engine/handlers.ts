@@ -9,6 +9,68 @@ import { parseListProfilesQuery, parseSearchProfilesQuery } from "./query-parsin
 import { listProfiles, searchProfiles } from "./queries.js";
 import type { ApiRequest, ApiResponse } from "./types.js";
 
+async function readRequestJsonBody(request: ApiRequest): Promise<Record<string, unknown>> {
+  const existingBody = request.body as unknown;
+
+  if (existingBody && typeof existingBody === "object") {
+    return existingBody as Record<string, unknown>;
+  }
+
+  if (typeof existingBody === "string" && existingBody.trim()) {
+    const parsedBody = JSON.parse(existingBody) as Record<string, unknown>;
+    request.body = parsedBody;
+    return parsedBody;
+  }
+
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  if (chunks.length === 0) {
+    request.body = {};
+    return {};
+  }
+
+  const parsedBody = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+  request.body = parsedBody;
+  return parsedBody;
+}
+
+function buildPaginationLinks(url: URL, page: number, limit: number, totalPages: number) {
+  const createPageUrl = (targetPage: number) => {
+    const nextUrl = new URL(url.toString());
+    nextUrl.searchParams.set("page", String(targetPage));
+    nextUrl.searchParams.set("limit", String(limit));
+    return `${nextUrl.pathname}${nextUrl.search}`;
+  };
+
+  return {
+    self: createPageUrl(page),
+    first: createPageUrl(1),
+    last: createPageUrl(Math.max(1, totalPages)),
+    prev: page > 1 ? createPageUrl(page - 1) : null,
+    next: page < totalPages ? createPageUrl(page + 1) : null,
+  };
+}
+
+function withPaginationMetadata(url: URL, result: {
+  status: "success";
+  page: number;
+  limit: number;
+  total: number;
+  data: unknown[];
+}) {
+  const totalPages = Math.max(1, Math.ceil(result.total / result.limit));
+
+  return {
+    ...result,
+    total_pages: totalPages,
+    links: buildPaginationLinks(url, result.page, result.limit, totalPages),
+  };
+}
+
 // This handler serves both profile creation and advanced listing.
 export async function profilesHandler(request: ApiRequest, response: ApiResponse) {
   if (handleOptions(request, response)) {
@@ -16,7 +78,18 @@ export async function profilesHandler(request: ApiRequest, response: ApiResponse
   }
 
   if (request.method === "POST") {
-    const name = request.body?.name;
+    let body: Record<string, unknown>;
+
+    try {
+      body = await readRequestJsonBody(request);
+    } catch {
+      return json(response, StatusCodes.BAD_REQUEST, {
+        status: "error",
+        message: "Invalid JSON body",
+      });
+    }
+
+    const name = body.name;
 
     if (name === undefined || name === null) {
       return json(response, StatusCodes.BAD_REQUEST, {
@@ -97,7 +170,7 @@ export async function profilesHandler(request: ApiRequest, response: ApiResponse
     try {
       const parsedQuery = parseListProfilesQuery(url);
       const result = await listProfiles(parsedQuery);
-      return json(response, StatusCodes.OK, result);
+      return json(response, StatusCodes.OK, withPaginationMetadata(url, result));
     } catch (error) {
       if (isHttpError(error)) {
         return json(response, error.statusCode, error.body);
@@ -142,7 +215,7 @@ export async function searchProfilesHandler(request: ApiRequest, response: ApiRe
   try {
     const parsedQuery = parseSearchProfilesQuery(url);
     const result = await searchProfiles(parsedQuery);
-    return json(response, StatusCodes.OK, result);
+    return json(response, StatusCodes.OK, withPaginationMetadata(url, result));
   } catch (error) {
     if (isHttpError(error)) {
       return json(response, error.statusCode, error.body);

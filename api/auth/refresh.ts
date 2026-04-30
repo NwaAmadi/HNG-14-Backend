@@ -57,6 +57,11 @@ async function refreshHandler(request: BackendRequest, response: BackendResponse
 
   return json(response, StatusCodes.OK, {
     status: "success",
+    user: rotated.user,
+    access_token: rotated.tokens.accessToken,
+    refresh_token: rotated.tokens.refreshToken,
+    csrf_token: rotated.tokens.csrfToken,
+    expires_at: rotated.tokens.accessTokenExpiresAt.toISOString(),
     data: {
       user: rotated.user,
       access_token: rotated.tokens.accessToken,

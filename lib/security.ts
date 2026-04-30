@@ -161,10 +161,28 @@ export function setCorsHeaders(request: BackendRequest, response: BackendRespons
  * @returns The best-effort client IP address or the placeholder `unknown`.
  */
 export function getClientIpAddress(request: BackendRequest): string {
-  const forwardedFor = request.headers["x-forwarded-for"];
+  const forwardedFor = readFirstForwardedValue(request.headers["x-forwarded-for"]);
 
-  if (typeof forwardedFor === "string" && forwardedFor.trim()) {
-    return forwardedFor.split(",")[0]?.trim() || "unknown";
+  if (forwardedFor) {
+    return forwardedFor;
+  }
+
+  const vercelForwardedFor = readFirstForwardedValue(request.headers["x-vercel-forwarded-for"]);
+
+  if (vercelForwardedFor) {
+    return vercelForwardedFor;
+  }
+
+  const realIp = readHeaderValue(request.headers["x-real-ip"]);
+
+  if (realIp) {
+    return realIp;
+  }
+
+  const cloudflareIp = readHeaderValue(request.headers["cf-connecting-ip"]);
+
+  if (cloudflareIp) {
+    return cloudflareIp;
   }
 
   return request.socket.remoteAddress || "unknown";
@@ -191,7 +209,9 @@ export async function readJsonBody<T extends Record<string, unknown>>(
   }
 
   if (typeof existingBody === "string" && existingBody.trim()) {
-    return JSON.parse(existingBody) as T;
+    const parsedBody = JSON.parse(existingBody) as T;
+    request.body = parsedBody;
+    return parsedBody;
   }
 
   const chunks: Buffer[] = [];
@@ -204,7 +224,9 @@ export async function readJsonBody<T extends Record<string, unknown>>(
     return {} as T;
   }
 
-  return JSON.parse(Buffer.concat(chunks).toString("utf8")) as T;
+  const parsedBody = JSON.parse(Buffer.concat(chunks).toString("utf8")) as T;
+  request.body = parsedBody;
+  return parsedBody;
 }
 
 /**
@@ -344,6 +366,55 @@ async function applyRateLimit(
   return json(response, StatusCodes.TOO_MANY_REQUESTS, createErrorBody("Too many requests"));
 }
 
+function readHeaderValue(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      if (entry.trim()) {
+        return entry.trim();
+      }
+    }
+
+    return null;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+
+  return null;
+}
+
+function readFirstForwardedValue(value: string | string[] | undefined): string | null {
+  const normalizedValue = readHeaderValue(value);
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  return normalizedValue.split(",")[0]?.trim() || null;
+}
+
+function buildRateLimitKey(request: BackendRequest, bucketName: "auth" | "api"): string {
+  const pathname = getRequestPathname(request);
+  const clientIp = getClientIpAddress(request);
+
+  if (clientIp !== "unknown") {
+    return `${bucketName}:${pathname}:ip:${clientIp}`;
+  }
+
+  const userAgent = readHeaderValue(request.headers["user-agent"]) ?? "unknown";
+  const acceptLanguage = readHeaderValue(request.headers["accept-language"]) ?? "unknown";
+
+  return `${bucketName}:${pathname}:ua:${userAgent}:lang:${acceptLanguage}`;
+}
+
+function requestHasJsonBody(request: BackendRequest): boolean {
+  const contentType = request.headers["content-type"];
+  const normalizedContentType = Array.isArray(contentType) ? contentType.join(",") : contentType ?? "";
+
+  return normalizedContentType.toLowerCase().includes("application/json");
+}
+
 /**
  * Handles common public-route concerns such as CORS, OPTIONS, logging, and rate
  * limiting so auth endpoints can focus on OAuth and token lifecycle behavior.
@@ -368,7 +439,7 @@ export function withPublicRoute(handler: BackendHandler, options: PublicRouteOpt
       request,
       response,
       options.rateLimitBucket,
-      `${getClientIpAddress(request)}:${getRequestPathname(request)}`
+      buildRateLimitKey(request, options.rateLimitBucket)
     );
 
     if (rateLimitResponse) {
@@ -406,6 +477,14 @@ export function withProtectedApiRoute(
       response.statusCode = StatusCodes.NO_CONTENT;
       response.end();
       return;
+    }
+
+    if (requestHasJsonBody(request) && !request.body) {
+      try {
+        await readJsonBody(request);
+      } catch {
+        return json(response, StatusCodes.BAD_REQUEST, createErrorBody("Invalid JSON body"));
+      }
     }
 
     const auth = await authenticateRequest({
