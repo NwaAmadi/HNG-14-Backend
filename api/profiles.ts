@@ -6,7 +6,7 @@ import {
   profilesHandler as baseProfilesHandler,
   searchProfilesHandler as baseSearchProfilesHandler,
 } from "../Stage 2/profile-engine.js";
-import { withProtectedApiRoute } from "../lib/security.js";
+import { withProfileApiRoute } from "../lib/security.js";
 import { type BackendRequest, type BackendResponse, createErrorBody, getRequestUrl, json } from "../lib/security.js";
 
 function escapeCsvValue(value: unknown): string {
@@ -45,27 +45,24 @@ function buildProfilesCsv(rows: Array<Record<string, unknown>>): string {
   return `${lines.join("\n")}\n`;
 }
 
-export const profilesHandler = withProtectedApiRoute(baseProfilesHandler, {
+export const profilesHandler = withProfileApiRoute(baseProfilesHandler, {
   allowedRoles: {
     GET: ["admin", "analyst"],
     POST: ["admin"],
   },
-  requireApiVersionHeader: true,
 });
 
-export const profileByIdHandler = withProtectedApiRoute(baseProfileByIdHandler, {
+export const profileByIdHandler = withProfileApiRoute(baseProfileByIdHandler, {
   allowedRoles: {
     GET: ["admin", "analyst"],
     DELETE: ["admin"],
   },
-  requireApiVersionHeader: true,
 });
 
-export const searchProfilesHandler = withProtectedApiRoute(baseSearchProfilesHandler, {
+export const searchProfilesHandler = withProfileApiRoute(baseSearchProfilesHandler, {
   allowedRoles: {
     GET: ["admin", "analyst"],
   },
-  requireApiVersionHeader: true, 
 });
 
 async function baseExportProfilesHandler(request: BackendRequest, response: BackendResponse) {
@@ -106,11 +103,10 @@ async function baseExportProfilesHandler(request: BackendRequest, response: Back
   }
 }
 
-export const exportProfilesHandler = withProtectedApiRoute(baseExportProfilesHandler, {
+export const exportProfilesHandler = withProfileApiRoute(baseExportProfilesHandler, {
   allowedRoles: {
     GET: ["admin", "analyst"],
   },
-  requireApiVersionHeader: true,
 });
 
 export default profilesHandler;

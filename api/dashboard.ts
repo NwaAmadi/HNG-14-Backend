@@ -2,7 +2,13 @@ import { StatusCodes } from "http-status-codes";
 
 import { prisma } from "../lib/db.js";
 import { withProtectedApiRoute } from "../lib/security.js";
-import { type BackendRequest, type BackendResponse, createErrorBody, json } from "../lib/security.js";
+import {
+  type BackendRequest,
+  type BackendResponse,
+  createErrorBody,
+  getRequiredAuthContext,
+  json,
+} from "../lib/security.js";
 
 const AGE_GROUP_ORDER = ["child", "teenager", "adult", "senior"] as const;
 const GENDER_ORDER = ["male", "female"] as const;
@@ -14,11 +20,7 @@ async function dashboardHandler(request: BackendRequest, response: BackendRespon
     return json(response, StatusCodes.METHOD_NOT_ALLOWED, createErrorBody("Method not allowed"));
   }
 
-  const viewer = request.auth;
-
-  if (!viewer) {
-    return json(response, StatusCodes.UNAUTHORIZED, createErrorBody("Authentication required"));
-  }
+  const viewer = getRequiredAuthContext(request);
 
   try {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000);

@@ -437,3 +437,36 @@ export function withProtectedApiRoute(
     }
   };
 }
+
+/**
+ * Applies the shared protected API checks plus the required profile-specific
+ * version header contract so profile endpoints stay consistent by default.
+ *
+ * @param handler The profile route handler to secure.
+ * @param options The method-to-role map for the profile endpoint.
+ * @returns A protected handler that always requires `X-API-Version: 1`.
+ */
+export function withProfileApiRoute(
+  handler: BackendHandler,
+  options: Omit<ProtectedRouteOptions, "requireApiVersionHeader">
+): BackendHandler {
+  return withProtectedApiRoute(handler, {
+    ...options,
+    requireApiVersionHeader: true,
+  });
+}
+
+/**
+ * Returns the authenticated request context that `withProtectedApiRoute`
+ * attaches, failing loudly only if a protected handler is miswired.
+ *
+ * @param request The protected backend request that should already include auth.
+ * @returns The authenticated request context for the current caller.
+ */
+export function getRequiredAuthContext(request: BackendRequest): AuthenticatedRequestContext {
+  if (!request.auth) {
+    throw new Error("Protected route is missing authenticated request context");
+  }
+
+  return request.auth;
+}

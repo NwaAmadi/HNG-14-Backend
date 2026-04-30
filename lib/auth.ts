@@ -182,13 +182,13 @@ function getBackendBaseUrl(): string {
 
 /**
  * Returns the GitHub callback URL, using an explicit override when present and
- * otherwise falling back to the backend's canonical `/api/auth/github/callback`.
+ * otherwise falling back to the backend's canonical `/auth/github/callback`.
  *
  * @returns The full callback URL GitHub should redirect back to after login.
  */
 function getGitHubCallbackUrl(): string {
   const configured = env.GITHUB_CALLBACK_URL;
-  return configured || `${getBackendBaseUrl()}/api/auth/github/callback`;
+  return configured || `${getBackendBaseUrl()}/auth/github/callback`;
 }
 
 /**

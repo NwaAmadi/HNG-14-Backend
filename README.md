@@ -12,7 +12,7 @@ The shared database schema remains in [prisma/schema.prisma](/home/gospel/Deskto
 
 This repository now contains the backend-only Stage 3 foundation:
 
-- GitHub OAuth entrypoints under `api/auth/*`
+- GitHub OAuth entrypoints under `/auth/*`
 - refresh-token rotation and logout support
 - RBAC-protected `/api/*` routes
 - `X-API-Version: 1` enforcement for profile endpoints
@@ -28,20 +28,20 @@ Copy values from `.env.example` into your local `.env` or `.env.local` and repla
 
 Important auth routes:
 
-- `GET /api/auth/github`
-- `GET /api/auth/github/callback`
-- `POST /api/auth/refresh`
-- `POST /api/auth/logout`
+- `GET /auth/github`
+- `GET /auth/github/callback`
+- `POST /auth/refresh`
+- `POST /auth/logout`
 - `GET /api/users/me`
-- `POST /api/auth/cli/exchange`
+- `POST /auth/cli/exchange`
 
 For the browser login flow behind a frontend proxy, `GITHUB_CALLBACK_URL` must point at the web app origin, not the backend origin. Example:
 
 ```text
-GITHUB_CALLBACK_URL=https://hng-stage-3-web-repository.vercel.app/api/auth/github/callback
+GITHUB_CALLBACK_URL=https://hng-stage-3-web-repository.vercel.app/auth/github/callback
 ```
 
-That lets the final callback response set auth cookies on the same origin that later calls `/api/users/me` and `/api/auth/refresh`.
+That lets the final callback response set auth cookies on the same origin that later calls `/api/users/me` and `/auth/refresh`.
 
 CLI login start expects:
 
@@ -52,9 +52,9 @@ CLI login start expects:
 
 Web login can use:
 
-- `GET /api/auth/github`
+- `GET /auth/github`
 
-Automated graders can also call `GET /api/auth/github/callback?code=test_code&state=...&code_verifier=...`.
+Automated graders can also call `GET /auth/github/callback?code=test_code&state=...&code_verifier=...`.
 When the `state` matches a stored OAuth transaction and the `code_verifier` matches its PKCE challenge,
 the backend returns JSON tokens for the earliest seeded admin user instead of redirecting through GitHub.
 
